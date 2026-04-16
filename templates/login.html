@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Booking Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main class="login-page">
+        <section class="login-shell">
+            <aside class="login-showcase">
+                <div class="login-brand">
+                    <span>Z</span>
+                    <div>
+                        <p class="eyebrow inverse">Accesso riservato</p>
+                        <h1>Booking Manager</h1>
+                    </div>
+                </div>
+
+                <div class="login-preview">
+                    <div class="preview-card">
+                        <p class="eyebrow inverse">Anteprima dashboard</p>
+                        <div class="preview-grid">
+                            <div class="preview-stat green">
+                                <p class="eyebrow">Contatti</p>
+                                <strong>56</strong>
+                            </div>
+                            <div class="preview-stat gold">
+                                <p class="eyebrow">Vendite</p>
+                                <strong>24</strong>
+                            </div>
+                            <div class="preview-stat purple">
+                                <p class="eyebrow">Focus</p>
+                                <strong>Booking</strong>
+                            </div>
+                        </div>
+                        <div class="preview-bars">
+                            <span style="height: 110px;"></span>
+                            <span style="height: 176px;"></span>
+                            <span style="height: 208px;"></span>
+                            <span style="height: 144px;"></span>
+                            <span style="height: 106px;"></span>
+                            <span style="height: 188px;"></span>
+                            <span style="height: 164px;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="login-hint">Accesso riservato all’area CRM con gestione locali, follow-up, trattative e date chiuse.</p>
+            </aside>
+
+            <section class="login-panel">
+                <div class="login-card">
+                    <div class="login-copy">
+                        <p class="eyebrow">Accesso</p>
+                        <h1>Entra nel CRM</h1>
+                        <p>Inserisci username e password per visualizzare la dashboard completa.</p>
+                    </div>
+
+                    {% if error %}
+                    <div class="login-error">{{ error }}</div>
+                    {% endif %}
+
+                    <form class="login-form" method="post" action="{{ url_for('login') }}">
+                        <label>Username
+                            <input type="text" name="username" placeholder="Admin" required autofocus>
+                        </label>
+                        <label>Password
+                            <input type="password" name="password" placeholder="Password" required>
+                        </label>
+                        <button class="primary-btn login-submit" type="submit">Accedi</button>
+                    </form>
+                </div>
+            </section>
+        </section>
+    </main>
+</body>
+</html>

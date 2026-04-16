@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="crm-body">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-top">
+                <div class="brand-lockup">
+                    <div class="brand-mark">Z</div>
+                    <div>
+                        <p class="eyebrow inverse">Area booking</p>
+                        <h1>Booking Manager</h1>
+                    </div>
+                </div>
+
+                <section class="profile-card">
+                    <div class="profile-avatar">A</div>
+                    <div class="profile-copy">
+                        <p>Bentornato,</p>
+                        <strong>{{ username }}</strong>
+                        <span>Scouting, trattative e date confermate.</span>
+                    </div>
+                </section>
+
+                <section class="agent-commission-card">
+                    <p class="eyebrow inverse">Commissioni agente</p>
+                    <strong id="agentCommissionTotal">0 euro</strong>
+                    <span id="agentCommissionMeta">15% sul totale delle date chiuse</span>
+                </section>
+            </div>
+
+            <nav class="nav-tabs" aria-label="Sezioni applicazione">
+                <button class="nav-tab active" data-view="dashboard"><span class="nav-icon"></span><span>Dashboard</span></button>
+                <button class="nav-tab" data-view="venues"><span class="nav-icon"></span><span>Archivio</span></button>
+                <button class="nav-tab" data-view="newVenue"><span class="nav-icon"></span><span>Nuovo locale</span></button>
+                <button class="nav-tab" data-view="followups"><span class="nav-icon"></span><span>Follow-up</span></button>
+                <button class="nav-tab" data-view="deals"><span class="nav-icon"></span><span>Trattative</span></button>
+                <button class="nav-tab" data-view="closedDates"><span class="nav-icon"></span><span>Date chiuse</span></button>
+                <button class="nav-tab" data-view="settings"><span class="nav-icon"></span><span>Impostazioni</span></button>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-footnote">
+                    <p>Vista operativa con storico attività, filtri smart e planning commerciale.</p>
+                </div>
+                <a class="logout-link" href="{{ url_for('logout') }}">Esci</a>
+            </div>
+        </aside>
+
+        <main class="workspace">
+            <section class="topbar">
+                <div class="topbar-copy">
+                    <p class="eyebrow">Workflow operativo</p>
+                    <h2 id="viewTitle">Dashboard booking</h2>
+                    <p class="topbar-subtitle">Panoramica rapida su locali, opportunità attive e prossime mosse del booking.</p>
+                </div>
+                <div class="topbar-actions">
+                    <button class="primary-btn quick-action" id="quickCreateButton" type="button">+ Nuovo locale</button>
+                </div>
+            </section>
+
+            <section class="view active" data-view-panel="dashboard">
+                <div class="dashboard-layout">
+                    <div class="dashboard-main">
+                        <div class="stats-grid" id="statsGrid"></div>
+
+                        <article class="panel chart-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Performance operativa</h3>
+                                    <p class="panel-subtitle">Distribuzione degli status attivi nel CRM.</p>
+                                </div>
+                                <span class="ghost-chip">CRM attivo</span>
+                            </div>
+                            <div class="mini-bars weekly-bars" id="pipelineBars"></div>
+                        </article>
+
+                        <article class="panel orders-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Focus priorità</h3>
+                                    <p class="panel-subtitle">Cluster A, B e C per decidere dove spingere il booking.</p>
+                                </div>
+                                <span class="ghost-chip">Aggiornato ora</span>
+                            </div>
+                            <div class="priority-stack" id="priorityStack"></div>
+                        </article>
+                    </div>
+
+                    <aside class="insight-rail">
+                        <article class="panel donut-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Riepilogo mensile</h3>
+                                    <p class="panel-subtitle">Lettura operativa del funnel booking.</p>
+                                </div>
+                            </div>
+                            <div class="donut-wrap">
+                                <div class="donut-chart" id="monthlySummaryDonut">
+                                    <div class="donut-inner">
+                                        <span>Totale</span>
+                                        <strong id="monthlySummaryTotal">0</strong>
+                                    </div>
+                                </div>
+                                <div class="donut-legend" id="monthlySummaryLegend">
+                                    <div><strong>0%</strong><span>Follow-up</span></div>
+                                    <div><strong>0%</strong><span>Pipeline</span></div>
+                                    <div><strong>0%</strong><span>Chiuse</span></div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article class="panel updates-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h3>Ultimi aggiornamenti</h3>
+                                    <p class="panel-subtitle">Ultime modifiche e attività del team.</p>
+                                </div>
+                            </div>
+                            <div class="timeline recent-list" id="recentUpdates"></div>
+                        </article>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="view" data-view-panel="venues">
+                <div class="panel filter-panel">
+                    <div class="search-row">
+                        <input type="search" id="globalSearch" placeholder="Cerca per locale, referente, città o note">
+                        <button class="secondary-btn" id="resetFiltersButton">Reset filtri</button>
+                    </div>
+                    <div class="filters-grid">
+                        <select id="filterCountry"><option value="">Nazione</option></select>
+                        <select id="filterRegion"><option value="">Regione / area</option></select>
+                        <select id="filterCity"><option value="">Città</option></select>
+                        <select id="filterCategory"><option value="">Categoria</option></select>
+                        <select id="filterPriority"><option value="">Priorità</option></select>
+                        <select id="filterStatus"><option value="">Stato</option></select>
+                        <select id="filterSeasonality"><option value="">Stagionalità</option></select>
+                        <select id="filterActiveEvents">
+                            <option value="">Eventi attivi</option>
+                            <option value="true">Sì</option>
+                            <option value="false">No</option>
+                        </select>
+                        <select id="filterCustomArea"><option value="">Area personalizzata</option></select>
+                        <input type="text" id="filterTag" placeholder="Tag personalizzato">
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Locale</th>
+                                <th>Luogo</th>
+                                <th>Categoria</th>
+                                <th>Stato</th>
+                                <th>Priorità</th>
+                                <th>Follow-up</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="venuesTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="view" data-view-panel="newVenue">
+                <article class="panel form-panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 id="formTitle">Inserimento rapido locale</h3>
+                            <p class="panel-subtitle">Scheda completa in stile CRM classico con priorità, tag e planning.</p>
+                        </div>
+                        <span class="ghost-chip">Inserimento dati</span>
+                    </div>
+                    <form id="venueForm" class="venue-form">
+                        <input type="hidden" id="venueId">
+                        <div class="form-grid">
+                            <label>Nome locale<input required id="name" name="name"></label>
+                            <label>Città<input id="city" name="city"></label>
+                            <label>Provincia / Stato<input id="admin_area" name="admin_area"></label>
+                            <label>Regione / Area geografica<input id="region" name="region"></label>
+                            <label>Nazione<input id="country" name="country"></label>
+                            <label>Indirizzo<input id="address" name="address"></label>
+                            <label>Area personalizzata<input id="custom_area" name="custom_area"></label>
+                            <label>Categoria
+                                <select id="category" name="category">
+                                    <option value="">Seleziona</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category }}">{{ category }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>Target / mood<input id="target_mood" name="target_mood"></label>
+                            <label>Referente<input id="contact_person" name="contact_person"></label>
+                            <label>Ruolo referente<input id="contact_role" name="contact_role"></label>
+                            <label>Telefono<input id="phone" name="phone"></label>
+                            <label>WhatsApp<input id="whatsapp" name="whatsapp"></label>
+                            <label>Email<input id="email" name="email" type="email"></label>
+                            <label>Instagram<input id="instagram" name="instagram"></label>
+                            <label>Sito web<input id="website" name="website"></label>
+                            <label>Stagionalità
+                                <select id="seasonality" name="seasonality">
+                                    <option value="">Seleziona</option>
+                                    {% for seasonality in seasonalities %}
+                                    <option value="{{ seasonality }}">{{ seasonality }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>Stato contatto
+                                <select id="status" name="status">
+                                    {% for status in contact_statuses %}
+                                    <option value="{{ status }}" {% if loop.first %}selected{% endif %}>{{ status }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>Priorità
+                                <select id="priority" name="priority">
+                                    <option value="">Non assegnata</option>
+                                    {% for priority in priorities %}
+                                    <option value="{{ priority }}">{{ priority }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>Prossima azione
+                                <select id="next_action" name="next_action">
+                                    <option value="">Seleziona</option>
+                                    {% for next_action in next_actions %}
+                                    <option value="{{ next_action }}">{{ next_action }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>Data follow-up<input id="follow_up_date" name="follow_up_date" type="date"></label>
+                            <label>Tag (separati da virgola)<input id="tags" name="tags"></label>
+                            <label class="checkbox-field">Eventi attivi
+                                <input id="active_events" name="active_events" type="checkbox">
+                            </label>
+                        </div>
+
+                        <label>Note
+                            <textarea id="notes" name="notes" rows="5" placeholder="Annotazioni interne, dettagli commerciali, impressioni, richieste..."></textarea>
+                        </label>
+
+                        <div class="form-actions">
+                            <button type="submit" class="primary-btn">Salva locale</button>
+                            <button type="button" class="secondary-btn" id="clearFormButton">Nuovo inserimento</button>
+                            <button type="button" class="secondary-btn danger-btn hidden" id="deleteFormVenueButton">Elimina contatto</button>
+                        </div>
+                    </form>
+                </article>
+            </section>
+
+            <section class="view" data-view-panel="followups">
+                <div class="cards-list" id="followupCards"></div>
+            </section>
+
+            <section class="view" data-view-panel="deals">
+                <div class="cards-list" id="dealCards"></div>
+            </section>
+
+            <section class="view" data-view-panel="closedDates">
+                <div class="cards-list" id="closedDateCards"></div>
+            </section>
+
+            <section class="view" data-view-panel="settings">
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Impostazioni roadmap</h3>
+                            <p class="panel-subtitle">Area dedicata alle estensioni future del CRM.</p>
+                        </div>
+                    </div>
+                    <ul class="settings-list">
+                        <li>Login base attivo con sessione locale.</li>
+                        <li>Backend pronto per utenti multipli in un secondo step.</li>
+                        <li>Espandibile con email, WhatsApp, analytics e report.</li>
+                    </ul>
+                    <div class="settings-danger-box">
+                        <div>
+                            <h4>Reset CRM</h4>
+                            <p>Cancella tutti i locali, le attività e le date chiuse mantenendo intatta la struttura del database.</p>
+                        </div>
+                        <button type="button" class="secondary-btn danger-btn" id="resetCrmButton">Resetta CRM</button>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <aside class="detail-drawer" id="detailDrawer" aria-hidden="true">
+        <div class="detail-header">
+            <div>
+                <p class="eyebrow">Scheda locale</p>
+                <h3 id="detailTitle">Dettaglio contatto</h3>
+            </div>
+            <button class="icon-btn" id="closeDrawerButton" type="button">×</button>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+    </aside>
+
+    <div class="toast" id="toast"></div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -63,6 +63,15 @@ const viewTitles = {
   settings: "Impostazioni e roadmap",
 };
 
+const travelRateOptions = [
+  { value: 0, label: "Entro 60 km: inclusa" },
+  { value: 70, label: "61-150 km: +70 euro" },
+  { value: 120, label: "151-250 km: +120 euro" },
+  { value: 170, label: "251-350 km: +170 euro" },
+  { value: 220, label: "351-450 km: +220 euro" },
+  { value: 300, label: "451-600 km: +300 euro" },
+];
+
 function showToast(message) {
   elements.toast.textContent = message;
   elements.toast.classList.add("show");
@@ -119,10 +128,18 @@ function formatCurrency(value) {
   return `${numeric.toLocaleString("it-IT", { minimumFractionDigits: numeric % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })} euro`;
 }
 
+function renderTravelRateOptions(selectedValue = 0) {
+  const normalized = Number(selectedValue || 0);
+  return travelRateOptions.map((option) => `
+    <option value="${option.value}" ${normalized === option.value ? "selected" : ""}>${option.label}</option>
+  `).join("");
+}
+
 function renderBookingBudgetEditor(bookingDate, context = "list") {
   if (bookingDate.derived) return "";
   const budgetValue = bookingDate.budget ?? "";
   const checked = bookingDate.radio_package ? "checked" : "";
+  const travelFee = Number(bookingDate.travel_fee || 0);
   const totalLabel = bookingDate.total_budget !== null && bookingDate.total_budget !== undefined
     ? formatCurrency(bookingDate.total_budget)
     : "Non impostato";
@@ -131,6 +148,9 @@ function renderBookingBudgetEditor(bookingDate, context = "list") {
       <div class="booking-budget-grid">
         <label>Budget chiusura
           <input type="number" min="0" step="0.01" data-field="budget" value="${budgetValue}">
+        </label>
+        <label>Tariffa trasferta
+          <select data-field="travel_fee">${renderTravelRateOptions(travelFee)}</select>
         </label>
         <label class="checkbox-field compact-checkbox">Pacchetto radio
           <input type="checkbox" data-field="radio_package" ${checked}>
@@ -587,6 +607,11 @@ async function openVenueDetail(venueId) {
           <label>Titolo evento<input name="event_title" required placeholder="Es. Summer Live Night"></label>
           <label>Data evento<input name="event_date" type="date" required></label>
           <label>Budget chiusura<input name="budget" type="number" min="0" step="0.01" placeholder="Es. 800"></label>
+          <label>Tariffa trasferta
+            <select name="travel_fee">
+              ${renderTravelRateOptions(0)}
+            </select>
+          </label>
           <label class="checkbox-field compact-checkbox">Pacchetto radio
             <input name="radio_package" type="checkbox">
           </label>
@@ -666,6 +691,7 @@ async function submitBookingDateForm(event) {
         event_title: formData.get("event_title"),
         event_date: formData.get("event_date"),
         budget: formData.get("budget"),
+        travel_fee: formData.get("travel_fee"),
         radio_package: formData.get("radio_package") === "on",
         notes: formData.get("notes"),
       }),
@@ -695,20 +721,27 @@ async function deleteBookingDate(bookingDateId) {
 function updateBookingBudgetPreview(editor) {
   if (!editor) return;
   const budgetInput = editor.querySelector("[data-field='budget']");
+  const travelSelect = editor.querySelector("[data-field='travel_fee']");
   const radioCheckbox = editor.querySelector("[data-field='radio_package']");
   const totalLabel = editor.querySelector("[data-role='total-budget']");
   const baseBudget = Number(budgetInput?.value || 0);
+  const travelFee = Number(travelSelect?.value || 0);
   const hasBudget = budgetInput?.value !== "";
-  const total = hasBudget ? baseBudget + (radioCheckbox?.checked ? 200 : 0) : null;
+  const hasExtras = Boolean(travelFee || radioCheckbox?.checked);
+  const total = hasBudget || hasExtras ? baseBudget + travelFee + (radioCheckbox?.checked ? 200 : 0) : null;
   totalLabel.textContent = total === null || Number.isNaN(total) ? "Non impostato" : formatCurrency(total);
 }
 
 function bindBookingBudgetEditor(editor) {
   if (!editor) return;
   const budgetInput = editor.querySelector("[data-field='budget']");
+  const travelSelect = editor.querySelector("[data-field='travel_fee']");
   const radioCheckbox = editor.querySelector("[data-field='radio_package']");
   if (budgetInput) {
     budgetInput.addEventListener("input", () => updateBookingBudgetPreview(editor));
+  }
+  if (travelSelect) {
+    travelSelect.addEventListener("change", () => updateBookingBudgetPreview(editor));
   }
   if (radioCheckbox) {
     radioCheckbox.addEventListener("change", () => updateBookingBudgetPreview(editor));
@@ -719,15 +752,19 @@ function bindBookingBudgetEditor(editor) {
 function bindBookingDateFormPreview(form) {
   if (!form) return;
   const budgetInput = form.querySelector("input[name='budget']");
+  const travelSelect = form.querySelector("select[name='travel_fee']");
   const radioCheckbox = form.querySelector("input[name='radio_package']");
   const totalLabel = form.querySelector("#bookingDateFormTotal");
   const render = () => {
-    const hasBudget = budgetInput?.value !== "";
     const baseBudget = Number(budgetInput?.value || 0);
-    const total = hasBudget ? baseBudget + (radioCheckbox?.checked ? 200 : 0) : null;
+    const travelFee = Number(travelSelect?.value || 0);
+    const hasBudget = budgetInput?.value !== "";
+    const hasExtras = Boolean(travelFee || radioCheckbox?.checked);
+    const total = hasBudget || hasExtras ? baseBudget + travelFee + (radioCheckbox?.checked ? 200 : 0) : null;
     totalLabel.textContent = `Totale: ${total === null || Number.isNaN(total) ? "Non impostato" : formatCurrency(total)}`;
   };
   budgetInput?.addEventListener("input", render);
+  travelSelect?.addEventListener("change", render);
   radioCheckbox?.addEventListener("change", render);
   render();
 }
@@ -735,12 +772,14 @@ function bindBookingDateFormPreview(form) {
 async function saveBookingBudget(bookingDateId, editor) {
   if (!editor) return;
   const budgetInput = editor.querySelector("[data-field='budget']");
+  const travelSelect = editor.querySelector("[data-field='travel_fee']");
   const radioCheckbox = editor.querySelector("[data-field='radio_package']");
   try {
     const result = await fetchJSON(`/api/booking-dates/${bookingDateId}`, {
       method: "PATCH",
       body: JSON.stringify({
         budget: budgetInput?.value || "",
+        travel_fee: travelSelect?.value || "0",
         radio_package: Boolean(radioCheckbox?.checked),
       }),
     });

@@ -69,6 +69,14 @@ NEXT_ACTION_OPTIONS = [
     "Inviare rider tecnico",
     "Confermare dettagli evento",
 ]
+TRAVEL_RATE_OPTIONS = [
+    {"value": 0, "label": "Entro 60 km: inclusa"},
+    {"value": 70, "label": "61-150 km: +70 euro"},
+    {"value": 120, "label": "151-250 km: +120 euro"},
+    {"value": 170, "label": "251-350 km: +170 euro"},
+    {"value": 220, "label": "351-450 km: +220 euro"},
+    {"value": 300, "label": "451-600 km: +300 euro"},
+]
 LOGIN_USERNAME = "Admin"
 LOGIN_PASSWORD = "Appalla!"
 BOOKING_META_PREFIX = "[[CRM_BOOKING_META]]"
@@ -316,6 +324,7 @@ def build_closed_date_entries(
                 "notes": booking_meta["user_notes"],
                 "budget": booking_meta["budget"],
                 "radio_package": booking_meta["radio_package"],
+                "travel_fee": booking_meta["travel_fee"],
                 "total_budget": booking_meta["total_budget"],
                 "venue_name": venue.get("name", ""),
                 "city": venue.get("city", ""),
@@ -339,6 +348,7 @@ def build_closed_date_entries(
                 "notes": venue.get("notes") or "Data chiusa registrata nel CRM senza evento dettagliato.",
                 "budget": None,
                 "radio_package": False,
+                "travel_fee": 0.0,
                 "total_budget": None,
                 "venue_name": venue.get("name", ""),
                 "city": venue.get("city", ""),
@@ -379,7 +389,9 @@ def parse_booking_date_notes(raw_notes: Any) -> dict[str, Any]:
         "user_notes": text,
         "budget": None,
         "radio_package": False,
+        "travel_fee": 0.0,
         "total_budget": None,
+        "commissionable_total": None,
     }
     if not text.startswith(BOOKING_META_PREFIX):
         return default_result
@@ -392,23 +404,42 @@ def parse_booking_date_notes(raw_notes: Any) -> dict[str, Any]:
         return default_result
     budget = normalize_budget_value(meta.get("budget"))
     radio_package = bool(meta.get("radio_package"))
-    total_budget = round((budget or 0) + (200 if radio_package else 0), 2) if budget is not None else None
+    travel_fee = normalize_budget_value(meta.get("travel_fee")) or 0.0
+    commissionable_total = (
+        round((budget or 0) + (200 if radio_package else 0), 2)
+        if budget is not None or radio_package
+        else None
+    )
+    total_budget = (
+        round((budget or 0) + (200 if radio_package else 0) + travel_fee, 2)
+        if budget is not None or radio_package or travel_fee
+        else None
+    )
     return {
         "user_notes": notes_body,
         "budget": budget,
         "radio_package": radio_package,
+        "travel_fee": travel_fee,
         "total_budget": total_budget,
+        "commissionable_total": commissionable_total,
     }
 
 
-def serialize_booking_date_notes(user_notes: str, budget: float | None, radio_package: bool) -> str | None:
+def serialize_booking_date_notes(
+    user_notes: str,
+    budget: float | None,
+    radio_package: bool,
+    travel_fee: float | None = None,
+) -> str | None:
     cleaned_notes = (user_notes or "").strip()
     normalized_budget = normalize_budget_value(budget)
-    if normalized_budget is None and not radio_package:
+    normalized_travel_fee = normalize_budget_value(travel_fee) or 0.0
+    if normalized_budget is None and not radio_package and not normalized_travel_fee:
         return cleaned_notes or None
     meta = {
         "budget": normalized_budget,
         "radio_package": bool(radio_package),
+        "travel_fee": normalized_travel_fee,
     }
     payload = f"{BOOKING_META_PREFIX}\n{json.dumps(meta, ensure_ascii=True)}"
     return f"{payload}\n{cleaned_notes}".strip() if cleaned_notes else payload
@@ -418,8 +449,8 @@ def compute_closed_dates_totals(booking_dates: list[dict[str, Any]]) -> dict[str
     gross_total = 0.0
     for item in booking_dates:
         parsed = parse_booking_date_notes(item.get("notes"))
-        if parsed["total_budget"] is not None:
-            gross_total += float(parsed["total_budget"])
+        if parsed["commissionable_total"] is not None:
+            gross_total += float(parsed["commissionable_total"])
     gross_total = round(gross_total, 2)
     commission_total = round(gross_total * 0.15, 2)
     return {
@@ -1779,6 +1810,7 @@ def index():
         categories=CATEGORIES,
         seasonalities=SEASONALITY_OPTIONS,
         next_actions=NEXT_ACTION_OPTIONS,
+        travel_rates=TRAVEL_RATE_OPTIONS,
     )
 
 
@@ -1791,6 +1823,7 @@ def api_meta():
             "categories": CATEGORIES,
             "seasonalities": SEASONALITY_OPTIONS,
             "next_actions": NEXT_ACTION_OPTIONS,
+            "travel_rates": TRAVEL_RATE_OPTIONS,
         }
     )
 
@@ -2258,6 +2291,7 @@ def api_update_booking_date(booking_date_id: str):
     payload = request.get_json(force=True)
     budget = normalize_budget_value(payload.get("budget"))
     radio_package = bool(payload.get("radio_package"))
+    travel_fee = normalize_budget_value(payload.get("travel_fee")) or 0.0
 
     if using_supabase():
         existing = supabase_select(
@@ -2273,7 +2307,7 @@ def api_update_booking_date(booking_date_id: str):
             if "notes" in payload
             else existing_meta["user_notes"]
         )
-        serialized_notes = serialize_booking_date_notes(user_notes, budget, radio_package)
+        serialized_notes = serialize_booking_date_notes(user_notes, budget, radio_package, travel_fee)
         supabase_request(
             "PATCH",
             "/rest/v1/booking_dates",
@@ -2281,7 +2315,16 @@ def api_update_booking_date(booking_date_id: str):
             payload={"notes": serialized_notes},
             prefer="return=minimal",
         )
-        total_budget = round((budget or 0) + (200 if radio_package else 0), 2) if budget is not None else None
+        commissionable_total = (
+            round((budget or 0) + (200 if radio_package else 0), 2)
+            if budget is not None or radio_package
+            else None
+        )
+        total_budget = (
+            round((budget or 0) + (200 if radio_package else 0) + travel_fee, 2)
+            if budget is not None or radio_package or travel_fee
+            else None
+        )
         supabase_request(
             "POST",
             "/rest/v1/venue_activities",
@@ -2291,7 +2334,9 @@ def api_update_booking_date(booking_date_id: str):
                 "activity_type": "booking",
                 "title": "Data chiusa aggiornata",
                 "details": (
-                    f"{booking_date.get('event_title', 'Evento')} - budget {format_budget_value(total_budget) or 'n/d'} euro"
+                    f"{booking_date.get('event_title', 'Evento')} - commissionabile {format_budget_value(commissionable_total) or 'n/d'} euro"
+                    + (f", trasferta {format_budget_value(travel_fee)} euro" if travel_fee else "")
+                    + f", totale {format_budget_value(total_budget) or 'n/d'} euro"
                     + (" con pacchetto radio" if radio_package else "")
                 ),
                 "created_at": utc_now(),
@@ -2317,19 +2362,30 @@ def api_update_booking_date(booking_date_id: str):
             if "notes" in payload
             else existing_meta["user_notes"]
         )
-        serialized_notes = serialize_booking_date_notes(user_notes, budget, radio_package)
+        serialized_notes = serialize_booking_date_notes(user_notes, budget, radio_package, travel_fee)
         connection.execute(
             "UPDATE booking_dates SET notes = ? WHERE id = ?",
             (serialized_notes, booking_date_id),
         )
-        total_budget = round((budget or 0) + (200 if radio_package else 0), 2) if budget is not None else None
+        commissionable_total = (
+            round((budget or 0) + (200 if radio_package else 0), 2)
+            if budget is not None or radio_package
+            else None
+        )
+        total_budget = (
+            round((budget or 0) + (200 if radio_package else 0) + travel_fee, 2)
+            if budget is not None or radio_package or travel_fee
+            else None
+        )
         log_activity(
             connection,
             booking_date["venue_id"],
             "booking",
             "Data chiusa aggiornata",
             (
-                f"{booking_date['event_title']} - budget {format_budget_value(total_budget) or 'n/d'} euro"
+                f"{booking_date['event_title']} - commissionabile {format_budget_value(commissionable_total) or 'n/d'} euro"
+                + (f", trasferta {format_budget_value(travel_fee)} euro" if travel_fee else "")
+                + f", totale {format_budget_value(total_budget) or 'n/d'} euro"
                 + (" con pacchetto radio" if radio_package else "")
             ),
         )
@@ -2463,10 +2519,11 @@ def api_add_booking_date(venue_id: int):
     notes = (payload.get("notes") or "").strip()
     budget = normalize_budget_value(payload.get("budget"))
     radio_package = bool(payload.get("radio_package"))
+    travel_fee = normalize_budget_value(payload.get("travel_fee")) or 0.0
     status = (payload.get("status") or "confirmed").strip()
     if not event_title or not event_date:
         return jsonify({"error": "Titolo evento e data sono obbligatori"}), 400
-    serialized_notes = serialize_booking_date_notes(notes, budget, radio_package)
+    serialized_notes = serialize_booking_date_notes(notes, budget, radio_package, travel_fee)
 
     if using_supabase():
         existing = supabase_select("venues", f"select=id&id=eq.{venue_id}&limit=1")

@@ -737,7 +737,8 @@ label {
     font-size: 0.9rem;
 }
 
-.booking-budget-editor input[type="number"] {
+.booking-budget-editor input[type="number"],
+.booking-budget-editor select {
     min-height: 46px;
     border-radius: 16px;
     background: #fffdfa;
@@ -753,7 +754,7 @@ label {
 
 .booking-budget-grid {
     display: grid;
-    grid-template-columns: minmax(180px, 220px) minmax(180px, 220px) minmax(140px, 180px);
+    grid-template-columns: minmax(170px, 220px) minmax(220px, 280px) minmax(180px, 220px) minmax(140px, 180px);
     gap: 12px;
     align-items: end;
 }

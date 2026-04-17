@@ -70,7 +70,6 @@ button, input, select, textarea, a {
 .sidebar {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     gap: 28px;
     padding: 30px 24px;
     background: linear-gradient(180deg, #2d2a29 0%, #232120 100%);
@@ -226,6 +225,7 @@ button, input, select, textarea, a {
 .sidebar-bottom {
     display: grid;
     gap: 16px;
+    margin-top: auto;
 }
 
 .logout-link {

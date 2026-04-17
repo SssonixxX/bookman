@@ -30,6 +30,8 @@ const elements = {
   quickCreateButton: document.getElementById("quickCreateButton"),
   clearFormButton: document.getElementById("clearFormButton"),
   deleteFormVenueButton: document.getElementById("deleteFormVenueButton"),
+  toggleFiltersButton: document.getElementById("toggleFiltersButton"),
+  venuesFilters: document.getElementById("venuesFilters"),
   resetCrmButton: document.getElementById("resetCrmButton"),
   resetFiltersButton: document.getElementById("resetFiltersButton"),
   followupCards: document.getElementById("followupCards"),
@@ -102,6 +104,20 @@ function switchView(viewName) {
   elements.viewTitle.textContent = viewTitles[viewName] || "Booking Manager";
   elements.navTabs.forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
   elements.views.forEach((view) => view.classList.toggle("active", view.dataset.viewPanel === viewName));
+  if (viewName !== "venues") {
+    setFiltersOpen(false);
+  }
+  if (window.innerWidth <= 980) {
+    closeDrawer();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+function setFiltersOpen(isOpen) {
+  if (!elements.venuesFilters || !elements.toggleFiltersButton) return;
+  elements.venuesFilters.classList.toggle("mobile-open", isOpen);
+  elements.toggleFiltersButton.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  elements.toggleFiltersButton.textContent = isOpen ? "Chiudi filtri" : "Filtri";
 }
 
 function badgeForPriority(priority) {
@@ -879,11 +895,18 @@ function attachEvents() {
   if (elements.resetCrmButton) {
     elements.resetCrmButton.addEventListener("click", resetCrm);
   }
+  if (elements.toggleFiltersButton) {
+    elements.toggleFiltersButton.addEventListener("click", () => {
+      const isOpen = elements.venuesFilters?.classList.contains("mobile-open");
+      setFiltersOpen(!isOpen);
+    });
+  }
   elements.closeDrawerButton.addEventListener("click", closeDrawer);
   elements.resetFiltersButton.addEventListener("click", () => {
     Object.values(filters).forEach((input) => {
       input.value = "";
     });
+    setFiltersOpen(false);
     loadVenues().catch((error) => showToast(error.message));
   });
 }
@@ -891,6 +914,7 @@ function attachEvents() {
 async function bootstrap() {
   attachEvents();
   setFormData(null);
+  setFiltersOpen(false);
   try {
     await Promise.all([loadDashboard(), loadVenues(), loadFollowups(), loadPipeline()]);
   } catch (error) {

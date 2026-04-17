@@ -132,9 +132,10 @@
                 <div class="panel filter-panel">
                     <div class="search-row">
                         <input type="search" id="globalSearch" placeholder="Cerca per locale, referente, città o note">
+                        <button class="secondary-btn filter-toggle-btn" id="toggleFiltersButton" type="button" aria-expanded="false" aria-controls="venuesFilters">Filtri</button>
                         <button class="secondary-btn" id="resetFiltersButton">Reset filtri</button>
                     </div>
-                    <div class="filters-grid">
+                    <div class="filters-grid" id="venuesFilters">
                         <select id="filterCountry"><option value="">Nazione</option></select>
                         <select id="filterRegion"><option value="">Regione / area</option></select>
                         <select id="filterCity"><option value="">Città</option></select>

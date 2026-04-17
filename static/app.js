@@ -104,6 +104,9 @@ function switchView(viewName) {
   elements.viewTitle.textContent = viewTitles[viewName] || "Booking Manager";
   elements.navTabs.forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
   elements.views.forEach((view) => view.classList.toggle("active", view.dataset.viewPanel === viewName));
+  if (viewName === "closedDates") {
+    Promise.all([loadPipeline(), loadDashboard()]).catch((error) => showToast(error.message));
+  }
   if (viewName !== "venues") {
     setFiltersOpen(false);
   }
@@ -142,6 +145,15 @@ function formatCurrency(value) {
   const numeric = Number(value);
   if (Number.isNaN(numeric)) return "-";
   return `${numeric.toLocaleString("it-IT", { minimumFractionDigits: numeric % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })} euro`;
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "-";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+    return `${day}-${month}-${year}`;
+  }
+  return value;
 }
 
 function renderTravelRateOptions(selectedValue = 0) {
@@ -304,7 +316,7 @@ function renderVenueTable() {
             <td>${venue.category || "-"}</td>
             <td>${badgeForStatus(venue.status)}</td>
             <td>${badgeForPriority(venue.priority)}</td>
-            <td><span class="${dueClass(venue.follow_up_date)}">${venue.follow_up_date || "-"}</span></td>
+            <td><span class="${dueClass(venue.follow_up_date)}">${formatDisplayDate(venue.follow_up_date)}</span></td>
             <td>
               <div class="inline-actions">
                 <button class="link-btn" data-action="detail" data-id="${venue.id}">Apri</button>
